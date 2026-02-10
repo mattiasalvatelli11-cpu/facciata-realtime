@@ -1,25 +1,91 @@
 :root {
-  --card-width: 420px;
-  --blue: #007bff;
+  /* Definisco i colori scuri per il tema */
+  --bg-color: #000000;      /* Sfondo pagina: Nero assoluto */
+  --box-bg: #121212;        /* Sfondo box: Grigio molto scuro */
+  --input-bg: #262626;      /* Sfondo input: Grigio scuro */
+  --border-color: #333333;  /* Bordi sottili */
+  --text-color: #ffffff;    /* Testo bianco */
+  --btn-bg: #1f1f1f;        /* Bottone scuro */
+  --btn-hover: #333333;     /* Bottone al passaggio mouse */
 }
-html,body{
-  height:100%; margin:0; font-family: Arial, Helvetica, sans-serif; background:#eef2f7;
-  display:flex; align-items:center; justify-content:center;
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-color); /* Applica lo sfondo nero */
+  color: var(--text-color);    /* Testo bianco */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.card {
-  width: var(--card-width);
-  background:#fff; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,0.08);
-  padding:20px; text-align:center;
+
+/* CORREZIONE 1: Ho cambiato '.card' in '#box' per collegarlo al tuo HTML */
+#box {
+  width: 400px;
+  background: var(--box-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px; /* Angoli leggermente arrotondati */
+  padding: 40px;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5); /* Ombra scura */
 }
-.title { font-size:20px; margin-bottom:12px; }
-input[type="text"], textarea {
-  width:100%; padding:12px; margin-bottom:10px; border-radius:8px; border:1px solid #d0d7df; font-size:15px; box-sizing:border-box;
+
+/* Stile del Titolo (h2) */
+h2 {
+  font-size: 24px;
+  margin-bottom: 30px;
+  font-weight: bold;
 }
-textarea { resize:vertical; min-height:80px; max-height:200px; }
+
+/* CORREZIONE 2: Uso 'input' generico per includere anche la Password */
+input {
+  width: 100%;
+  padding: 14px;
+  margin-bottom: 15px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background: var(--input-bg);
+  color: var(--text-color);
+  font-size: 15px;
+  box-sizing: border-box; /* Assicura che il padding non sballi la larghezza */
+  outline: none; /* Rimuove il bordo blu di default */
+}
+
+/* Colore del testo segnaposto (es. "Username") */
+input::placeholder {
+  color: #888888;
+}
+
+/* Effetto quando clicchi sulla casella */
+input:focus {
+  border-color: #666; 
+}
+
+/* Stile del Bottone */
 button {
-  width:100%; padding:12px; border-radius:8px; border:none; background:var(--blue); color:#fff; font-size:16px; cursor:pointer;
+  width: 100%;
+  padding: 14px;
+  border-radius: 4px;
+  border: none;
+  background: var(--btn-bg);
+  color: var(--text-color);
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background 0.2s;
 }
-.feed { margin-top:16px; text-align:left; max-height:300px; overflow:auto; border-top:1px solid #f0f0f0; padding-top:10px; }
-.msg { padding:8px 6px; border-radius:8px; margin-bottom:8px; background:#f7f9fc; }
-.meta { font-size:12px; color:#666; margin-bottom:6px; }
-.small { font-size:12px; color:#999; margin-top:8px; }
+
+button:hover {
+  background: var(--btn-hover);
+}
+
+/* Link o testi piccoli sotto (se li aggiungerai in futuro) */
+a {
+  color: #888888;
+  text-decoration: none;
+  font-size: 14px;
+  margin-top: 15px;
+  display: inline-block;
+}

@@ -2,58 +2,58 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const WebSocket = require('ws');
+// const pool = require('./db');   // COMMENTATO - non serve per la webcam
 
 const app = express();
 const port = process.env.PORT || 8080;
 
-// Serve files in the "public" folder
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- MAIN PAGE ROUTE ---
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
-// --- ADMIN PAGE ROUTE ---
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
-
-// --- CREATE HTTP + WEBSOCKET SERVER ---
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// --- WEBSOCKET HANDLING ---
 wss.on('connection', (ws) => {
-  console.log("New client connected");
-
-  ws.on('message', (raw) => {
-    let data;
+  ws.on('message', async (raw) => {
     try {
-      data = JSON.parse(raw);
-    } catch {
-      return;
-    }
+      const data = JSON.parse(raw);
+      
+      let payload;
+      if (data.type === 'webcam_frame') {
+        // Foto webcam → solo broadcast (NO database)
+        payload = {
+          user: String(data.user || "Anonymous").slice(0, 60),
+          type: 'webcam_frame',
+          image: data.image,
+          ts: Date.now()
+        };
+      } else {
+        // Messaggio normale (vecchio login)
+        payload = {
+          user: String(data.user || "Anonymous").slice(0, 60),
+          message: String(data.message || "").slice(0, 2000),
+          ts: Date.now()
+        };
 
-    // Clean up minimum values
-    data.user = String(data.user || "Anonymous").slice(0, 60);
-    data.message = String(data.message || "").slice(0, 2000);
-    data.ts = Date.now();
-
-    const msg = JSON.stringify(data);
-
-    // Send to all connected clients
-    wss.clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(msg);
+        // COMMENTATO - non salviamo nel db per ora
+        // await pool.query(...);
       }
-    });
 
-    console.log(`[MSG] ${data.user}: ${data.message}`);
+      const msgString = JSON.stringify(payload);
+
+      // Invia a TUTTI i client connessi
+      wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(msgString);
+        }
+      });
+
+    } catch (err) {
+      console.error("Errore:", err);
+    }
   });
 });
 
-// --- START SERVER ---
-server.listen(port, () => {
-  console.log(`Server started on http://localhost:${port}`);
-});
+server.listen(port, () => console.log(`Server attivo su porta ${port}`));
