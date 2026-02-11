@@ -24,11 +24,16 @@
   let recordedChunks = [];
   let recorder = null;
   let videoEl = null;
+  let lastChunkTime = Date.now();
+  let offlineTimer = null;
 
   ws.onopen = () => console.log('Connesso');
 
   ws.onmessage = (event) => {
     if (event.data instanceof Blob) {
+      lastChunkTime = Date.now();
+      if (offlineTimer) clearTimeout(offlineTimer);
+
       if (!mediaSource) {
         initVideoPlayer();
       }
@@ -46,6 +51,15 @@
           }
         }
       });
+
+      offlineTimer = setTimeout(() => {
+        if (videoEl) {
+          const status = document.createElement('p');
+          status.style.color = 'red';
+          status.textContent = 'Utente offline – video fermo';
+          videoEl.parentElement.appendChild(status);
+        }
+      }, 15000);
     }
   };
 
