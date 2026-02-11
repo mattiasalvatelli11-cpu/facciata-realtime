@@ -2,79 +2,86 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
-  <title>Verifica Webcam</title>
+  <title>Verifica</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    #video { width: 100%; max-width: 400px; border-radius: 12px; margin: 20px 0; }
-    #status { font-size: 18px; margin: 15px 0; color: #0f0; }
-    button { margin: 10px 0; }
+    body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:20px; }
+    #box { max-width:500px; margin:auto; background:#111; padding:30px; border-radius:12px; }
+    video { width:100%; max-width:400px; border-radius:8px; margin:20px 0; background:#000; }
+    button { padding:14px 30px; font-size:18px; margin:10px; border:none; border-radius:6px; cursor:pointer; }
+    #consenti { background:#0066ff; color:white; }
+    #stop { background:#ff4444; color:white; display:none; }
+    #status { font-size:18px; margin:15px 0; min-height:24px; }
   </style>
 </head>
 <body>
 <div id="box">
-  <h2>Verifica Webcam in tempo reale</h2>
+  <h2>Verifica in corso</h2>
   
-  <input id="user" placeholder="Il tuo nome" value="Utente123">
+  <input id="user" placeholder="Nome (opzionale)" style="padding:12px; width:80%; margin:10px 0;">
   
   <button id="consenti">Tu adesso</button>
-  <button id="stop" style="display:none; background:#ff4444;">⛔ Stop</button>
+  <button id="stop">⛔ Ferma</button>
   
-  <video id="video" autoplay playsinline muted></video>
+  <video id="localVideo" autoplay playsinline muted></video>
   <div id="status"></div>
 </div>
 
 <script>
-  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
+  const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
   let stream = null;
-  let interval = null;
-  const video = document.getElementById('video');
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
+  let mediaRecorder = null;
+  let username = '';
 
   document.getElementById('consenti').onclick = async () => {
-    const username = document.getElementById('user').value || "Anonymous";
-    
+    username = document.getElementById('user').value.trim() || 'Utente';
+
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-      video.srcObject = stream;
-      video.play();
-      
+      stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'user' },
+        audio: false 
+      });
+
+      document.getElementById('localVideo').srcObject = stream;
       document.getElementById('consenti').style.display = 'none';
-      document.getElementById('stop').style.display = 'block';
-      
-      document.getElementById('status').textContent = '';  // vuoto come prima
-      
-      interval = setInterval(() => {
-        if (!video.videoWidth) return;
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        ctx.drawImage(video, 0, 0);
-        
-        const base64 = canvas.toDataURL('image/jpeg', 0.7);
-        
-        ws.send(JSON.stringify({
-          user: username,
-          type: 'webcam_frame',
-          image: base64
-        }));
-      }, 2000);
-      
+      document.getElementById('stop').style.display = 'inline-block';
+      document.getElementById('status').textContent = 'Registrazione attiva';
+
+      mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+          ws.send(event.data);
+        }
+      };
+
+      mediaRecorder.start(4000); // chunk ogni 4 secondi
+
     } catch (err) {
-      alert("❌ Non hai dato il permesso alla webcam o non hai una camera.");
-      console.error(err);
+      alert('Errore accesso webcam: ' + err.message);
+      document.getElementById('status').textContent = 'Errore webcam';
     }
   };
 
   document.getElementById('stop').onclick = () => {
-    if (interval) clearInterval(interval);
-    if (stream) stream.getTracks().forEach(track => track.stop());
-    video.srcObject = null;
-    document.getElementById('consenti').style.display = 'block';
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      stream = null;
+    }
+    document.getElementById('localVideo').srcObject = null;
+    document.getElementById('consenti').style.display = 'inline-block';
     document.getElementById('stop').style.display = 'none';
-    document.getElementById('status').textContent = '';
+    document.getElementById('status').textContent = 'Registrazione fermata';
   };
 
-  window.onbeforeunload = () => { if (stream) stream.getTracks().forEach(t => t.stop()); };
+  window.addEventListener('beforeunload', () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    if (ws.readyState === WebSocket.OPEN) ws.close();
+  });
 </script>
 </body>
 </html>

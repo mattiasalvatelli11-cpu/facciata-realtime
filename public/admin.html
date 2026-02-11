@@ -2,48 +2,105 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
-  <title>Admin Panel - Live</title>
+  <title>Admin – Verifiche Live</title>
   <style>
-    body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
-    #feed { max-width: 800px; margin: auto; }
-    .msg { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    .meta { font-size: 0.85em; color: #666; margin-bottom: 8px; }
-    img { max-width: 100%; border-radius: 8px; display: block; margin-top: 10px; }
+    body { font-family:Arial; background:#f0f0f0; padding:20px; margin:0; }
+    h1 { text-align:center; }
+    #feed { max-width:900px; margin:0 auto; }
+    .user-box { background:white; border-radius:8px; padding:15px; margin:20px 0; box-shadow:0 2px 10px rgba(0,0,0,0.1); }
+    video { width:100%; max-width:600px; background:#000; border-radius:6px; }
+    button { padding:10px 20px; font-size:16px; margin:10px 5px; cursor:pointer; }
+    #saveBtn { background:#28a745; color:white; border:none; }
   </style>
 </head>
 <body>
-  <h2 style="text-align:center;">Pannello Admin - Webcam + Messaggi Live</h2>
-  <div id="feed"></div>
+<h1>Verifiche in arrivo</h1>
+<div id="feed"></div>
 
-  <script>
-    const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
+<script>
+  const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  let mediaSource = null;
+  let sourceBuffer = null;
+  let recordedChunks = [];
+  let recorder = null;
+  let videoEl = null;
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      const feed = document.getElementById("feed");
-      
-      const div = document.createElement("div");
-      div.className = "msg";
-      
-      const meta = document.createElement("div");
-      meta.className = "meta";
-      meta.textContent = `${data.user} • ${new Date(data.ts).toLocaleTimeString()}`;
-      
-      div.appendChild(meta);
+  ws.onopen = () => console.log('Connesso');
 
-      if (data.type === 'webcam_frame') {
-        const img = document.createElement("img");
-        img.src = data.image;
-        div.appendChild(img);
-      } else {
-        const content = document.createElement("div");
-        content.style.fontWeight = "bold";
-        content.textContent = data.message || "";
-        div.appendChild(content);
+  ws.onmessage = (event) => {
+    if (event.data instanceof Blob) {
+      if (!mediaSource) {
+        initVideoPlayer();
       }
-      
-      feed.prepend(div);
-    };
-  </script>
+
+      event.data.arrayBuffer().then(buffer => {
+        if (sourceBuffer && !sourceBuffer.updating) {
+          sourceBuffer.appendBuffer(buffer);
+
+          if (!recorder) {
+            const stream = videoEl.captureStream ? videoEl.captureStream() : videoEl.mozCaptureStream();
+            recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            recorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+            recorder.start();
+            console.log('Registrazione iniziata');
+          }
+        }
+      });
+    }
+  };
+
+  function initVideoPlayer() {
+    const container = document.getElementById('feed');
+    const box = document.createElement('div');
+    box.className = 'user-box';
+    box.innerHTML = '<h3>Utente in verifica</h3>';
+
+    videoEl = document.createElement('video');
+    videoEl.autoplay = true;
+    videoEl.controls = true;
+    box.appendChild(videoEl);
+
+    const saveBtn = document.createElement('button');
+    saveBtn.id = 'saveBtn';
+    saveBtn.textContent = 'Salva Video Completo';
+    saveBtn.onclick = saveVideo;
+    box.appendChild(saveBtn);
+
+    container.appendChild(box);
+
+    mediaSource = new MediaSource();
+    videoEl.src = URL.createObjectURL(mediaSource);
+
+    mediaSource.addEventListener('sourceopen', () => {
+      sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp9"');
+      sourceBuffer.mode = 'sequence';
+    });
+  }
+
+  function saveVideo() {
+    if (recorder) {
+      recorder.stop();
+      recorder = null;
+    }
+
+    setTimeout(() => {
+      if (recordedChunks.length > 0) {
+        const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `verifica_${new Date().toISOString().slice(0,19).replace('T','_')}.webm`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        recordedChunks = [];
+      }
+    }, 500);
+  }
+
+  ws.onclose = () => console.log('Disconnesso');
+</script>
 </body>
 </html>
