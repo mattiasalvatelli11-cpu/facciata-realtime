@@ -25,41 +25,36 @@
   let recorder = null;
   let videoEl = null;
   let lastChunkTime = Date.now();
-  let offlineTimer = null;
 
   ws.onopen = () => console.log('Connesso');
 
   ws.onmessage = (event) => {
     if (event.data instanceof Blob) {
       lastChunkTime = Date.now();
-      if (offlineTimer) clearTimeout(offlineTimer);
 
       if (!mediaSource) {
         initVideoPlayer();
       }
 
       event.data.arrayBuffer().then(buffer => {
-        if (sourceBuffer && !sourceBuffer.updating) {
-          sourceBuffer.appendBuffer(buffer);
+        if (sourceBuffer && sourceBuffer.readyState === 'open' && !sourceBuffer.updating) {
+          try {
+            sourceBuffer.appendBuffer(buffer);
+          } catch (e) {
+            console.error('Append failed:', e);
+          }
 
           if (!recorder) {
             const stream = videoEl.captureStream ? videoEl.captureStream() : videoEl.mozCaptureStream();
-            recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-            recorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
-            recorder.start();
-            console.log('Registrazione iniziata');
+            if (stream) {
+              recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+              recorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+              recorder.start();
+              console.log('Registrazione locale iniziata');
+            }
           }
         }
       });
-
-      offlineTimer = setTimeout(() => {
-        if (videoEl) {
-          const status = document.createElement('p');
-          status.style.color = 'red';
-          status.textContent = 'Utente offline – video fermo';
-          videoEl.parentElement.appendChild(status);
-        }
-      }, 15000);
     }
   };
 
@@ -67,7 +62,6 @@
     const container = document.getElementById('feed');
     const box = document.createElement('div');
     box.className = 'user-box';
-    box.innerHTML = '<h3>Utente in verifica</h3>';
 
     videoEl = document.createElement('video');
     videoEl.autoplay = true;
@@ -86,8 +80,13 @@
     videoEl.src = URL.createObjectURL(mediaSource);
 
     mediaSource.addEventListener('sourceopen', () => {
-      sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp9"');
-      sourceBuffer.mode = 'sequence';
+      try {
+        sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8"');
+        sourceBuffer.mode = 'sequence';
+        console.log('SourceBuffer aperto con vp8');
+      } catch (e) {
+        console.error('addSourceBuffer failed:', e);
+      }
     });
   }
 
@@ -104,11 +103,8 @@
         const a = document.createElement('a');
         a.href = url;
         a.download = `verifica_${new Date().toISOString().slice(0,19).replace('T','_')}.webm`;
-        document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
         URL.revokeObjectURL(url);
-
         recordedChunks = [];
       }
     }, 500);

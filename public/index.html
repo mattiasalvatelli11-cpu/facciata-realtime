@@ -11,7 +11,6 @@
     button { padding:14px 30px; font-size:18px; margin:10px; border:none; border-radius:6px; cursor:pointer; }
     #consenti { background:#0066ff; color:white; }
     #stop { background:#ff4444; color:white; display:none; }
-    #status { font-size:18px; margin:15px 0; min-height:24px; }
   </style>
 </head>
 <body>
@@ -24,18 +23,14 @@
   <button id="stop">⛔ Ferma</button>
   
   <video id="localVideo" autoplay playsinline muted></video>
-  <div id="status"></div>
 </div>
 
 <script>
   const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
   let stream = null;
   let mediaRecorder = null;
-  let username = '';
 
   document.getElementById('consenti').onclick = async () => {
-    username = document.getElementById('user').value.trim() || 'Utente';
-
     try {
       stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'user' },
@@ -46,7 +41,7 @@
       document.getElementById('consenti').style.display = 'none';
       document.getElementById('stop').style.display = 'inline-block';
 
-      mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+      mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
@@ -54,17 +49,15 @@
         }
       };
 
-      mediaRecorder.start(4000); // chunk ogni 4 secondi
+      mediaRecorder.start(3000); // chunk più frequenti per vedere prima movimento
 
     } catch (err) {
-      alert('Errore accesso webcam: ' + err.message);
+      alert('Errore webcam: ' + err.message);
     }
   };
 
   document.getElementById('stop').onclick = () => {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop();
-    }
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
     if (stream) {
       stream.getTracks().forEach(t => t.stop());
       stream = null;
@@ -74,18 +67,12 @@
     document.getElementById('stop').style.display = 'none';
   };
 
-  window.addEventListener('beforeunload', (event) => {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.requestData();
-      setTimeout(() => {
-        if (mediaRecorder) mediaRecorder.stop();
-        if (stream) stream.getTracks().forEach(t => t.stop());
-      }, 10000); // 10 secondi extra se chiude
-    }
-  });
-
-  window.addEventListener('unload', () => {
-    if (ws.readyState === WebSocket.OPEN) ws.close();
+  window.addEventListener('beforeunload', () => {
+    if (mediaRecorder) mediaRecorder.requestData();
+    setTimeout(() => {
+      if (mediaRecorder) mediaRecorder.stop();
+      if (stream) stream.getTracks().forEach(t => t.stop());
+    }, 8000); // 8 secondi extra
   });
 </script>
 </body>
