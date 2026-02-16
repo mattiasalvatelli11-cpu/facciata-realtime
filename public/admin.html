@@ -11,6 +11,7 @@
     video { width:100%; max-width:600px; background:#000; border-radius:6px; }
     button { padding:10px 20px; font-size:16px; margin:10px 5px; cursor:pointer; }
     #saveBtn { background:#28a745; color:white; border:none; }
+    #stopBtn { background:#dc3545; color:white; border:none; }
   </style>
 </head>
 <body>
@@ -50,7 +51,6 @@
               recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
               recorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
               recorder.start();
-              console.log('Registrazione locale iniziata');
             }
           }
         }
@@ -74,6 +74,12 @@
     saveBtn.onclick = saveVideo;
     box.appendChild(saveBtn);
 
+    const stopBtn = document.createElement('button');
+    stopBtn.id = 'stopBtn';
+    stopBtn.textContent = 'Ferma e Salva';
+    stopBtn.onclick = stopAndSave;
+    box.appendChild(stopBtn);
+
     container.appendChild(box);
 
     mediaSource = new MediaSource();
@@ -83,7 +89,6 @@
       try {
         sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8"');
         sourceBuffer.mode = 'sequence';
-        console.log('SourceBuffer aperto con vp8');
       } catch (e) {
         console.error('addSourceBuffer failed:', e);
       }
@@ -92,10 +97,26 @@
 
   function saveVideo() {
     if (recorder) {
-      recorder.stop();
-      recorder = null;
+      recorder.requestData(); // forza ultimo chunk
+      setTimeout(() => {
+        recorder.stop();
+        recorder = null;
+        downloadVideo();
+      }, 300);
+    } else {
+      downloadVideo();
     }
+  }
 
+  function stopAndSave() {
+    // Manda comando stop all'utente
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'stop' }));
+    }
+    saveVideo(); // salva comunque quello che c'è
+  }
+
+  function downloadVideo() {
     setTimeout(() => {
       if (recordedChunks.length > 0) {
         const blob = new Blob(recordedChunks, { type: 'video/webm' });
