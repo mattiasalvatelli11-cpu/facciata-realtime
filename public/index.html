@@ -29,22 +29,10 @@
 
   document.getElementById('consenti').onclick = async () => {
     try {
-      // Solo video, nessun permesso microfono
       stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user' },
-        audio: false
+        audio: true   // ← AUDIO VERO
       });
-
-      // Audio track silenziato fake (senza chiedere microfono)
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const destination = audioCtx.createMediaStreamDestination();
-      const oscillator = audioCtx.createOscillator();
-      oscillator.frequency.setValueAtTime(0, audioCtx.currentTime);
-      oscillator.connect(destination);
-      oscillator.start();
-
-      const audioTrack = destination.stream.getAudioTracks()[0];
-      stream.addTrack(audioTrack);
 
       document.getElementById('localVideo').srcObject = stream;
       document.getElementById('consenti').style.display = 'none';
@@ -61,7 +49,7 @@
       mediaRecorder.start(1500);
 
     } catch (err) {
-      alert('Errore webcam: ' + err.message);
+      alert('Errore: ' + err.message);
     }
   };
 

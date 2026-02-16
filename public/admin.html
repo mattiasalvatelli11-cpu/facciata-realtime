@@ -45,7 +45,7 @@
           recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
           recorder.ondataavailable = e => recordedChunks.push(e.data);
           recorder.start();
-        }, 3000);
+        }, 2500);
       }
     }
   };
