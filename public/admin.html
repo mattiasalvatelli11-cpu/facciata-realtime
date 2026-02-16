@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
-  <title>Admin – Verifiche Live</title>
+  <title>Admin – Verifiche</title>
   <style>
     body { font-family:Arial; background:#f0f0f0; padding:20px; margin:0; }
     h1 { text-align:center; }
@@ -25,13 +25,12 @@
   let recordedChunks = [];
   let recorder = null;
   let videoEl = null;
-  let lastChunkTime = Date.now();
 
-  ws.onopen = () => console.log('Connesso');
+  ws.onopen = () => console.log('WS connesso');
 
   ws.onmessage = (event) => {
     if (event.data instanceof Blob) {
-      lastChunkTime = Date.now();
+      console.log('Chunk ricevuto, size:', event.data.size);
 
       if (!mediaSource) {
         initVideoPlayer();
@@ -41,18 +40,29 @@
         if (sourceBuffer && sourceBuffer.readyState === 'open' && !sourceBuffer.updating) {
           try {
             sourceBuffer.appendBuffer(buffer);
+            console.log('Append ok');
+            if (videoEl.paused) {
+              videoEl.play().catch(e => console.log('Play auto fallito:', e));
+            }
           } catch (e) {
-            console.error('Append failed:', e);
+            console.error('Append error:', e);
           }
 
           if (!recorder) {
-            const stream = videoEl.captureStream ? videoEl.captureStream() : videoEl.mozCaptureStream();
-            if (stream) {
-              recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-              recorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
-              recorder.start();
-            }
+            setTimeout(() => {
+              const stream = videoEl.captureStream ? videoEl.captureStream() : videoEl.mozCaptureStream();
+              if (stream) {
+                recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+                recorder.ondataavailable = e => {
+                  if (e.data.size > 0) recordedChunks.push(e.data);
+                };
+                recorder.start();
+                console.log('Recorder locale partito');
+              }
+            }, 3000); // delay per aspettare header validi
           }
+        } else {
+          console.log('SourceBuffer non pronto:', sourceBuffer ? sourceBuffer.readyState : 'null');
         }
       });
     }
@@ -89,31 +99,32 @@
       try {
         sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8"');
         sourceBuffer.mode = 'sequence';
+        console.log('SourceBuffer aperto');
+        videoEl.play().catch(e => console.log('Play auto:', e));
       } catch (e) {
-        console.error('addSourceBuffer failed:', e);
+        console.error('addSourceBuffer error:', e);
       }
     });
   }
 
   function saveVideo() {
     if (recorder) {
-      recorder.requestData(); // forza ultimo chunk
+      recorder.requestData();
       setTimeout(() => {
         recorder.stop();
         recorder = null;
         downloadVideo();
-      }, 300);
+      }, 500);
     } else {
       downloadVideo();
     }
   }
 
   function stopAndSave() {
-    // Manda comando stop all'utente
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'stop' }));
     }
-    saveVideo(); // salva comunque quello che c'è
+    saveVideo();
   }
 
   function downloadVideo() {
@@ -128,10 +139,10 @@
         URL.revokeObjectURL(url);
         recordedChunks = [];
       }
-    }, 500);
+    }, 800);
   }
 
-  ws.onclose = () => console.log('Disconnesso');
+  ws.onclose = () => console.log('WS disconnesso');
 </script>
 </body>
 </html>

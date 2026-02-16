@@ -16,12 +16,9 @@
 <body>
 <div id="box">
   <h2>Verifica</h2>
-  
   <input id="user" placeholder="Nome (opzionale)" style="padding:12px; width:80%; margin:10px 0;">
-  
   <button id="consenti">Tu adesso</button>
   <button id="stop">⛔ Ferma</button>
-  
   <video id="localVideo" autoplay playsinline muted></video>
 </div>
 
@@ -32,9 +29,9 @@
 
   document.getElementById('consenti').onclick = async () => {
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ 
+      stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user' },
-        audio: false 
+        audio: false
       });
 
       document.getElementById('localVideo').srcObject = stream;
@@ -43,13 +40,14 @@
 
       mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
 
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-          ws.send(event.data);
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+          console.log('Chunk inviato, size:', e.data.size);
+          ws.send(e.data);
         }
       };
 
-      mediaRecorder.start(3000);
+      mediaRecorder.start(1500); // chunk ogni 1.5 sec per vedere prima
 
     } catch (err) {
       alert('Errore webcam: ' + err.message);
@@ -57,25 +55,7 @@
   };
 
   document.getElementById('stop').onclick = () => {
-    stopAndClean();
-  };
-
-  // Riceve comando stop dall'admin
-  ws.onmessage = (event) => {
-    if (typeof event.data === 'string') {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === 'stop') {
-          stopAndClean();
-        }
-      } catch (e) {}
-    }
-  };
-
-  function stopAndClean() {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop();
-    }
+    if (mediaRecorder) mediaRecorder.stop();
     if (stream) {
       stream.getTracks().forEach(t => t.stop());
       stream = null;
@@ -83,14 +63,25 @@
     document.getElementById('localVideo').srcObject = null;
     document.getElementById('consenti').style.display = 'inline-block';
     document.getElementById('stop').style.display = 'none';
-  }
+  };
+
+  ws.onmessage = (event) => {
+    if (typeof event.data === 'string') {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'stop') {
+          document.getElementById('stop').click();
+        }
+      } catch {}
+    }
+  };
 
   window.addEventListener('beforeunload', () => {
     if (mediaRecorder) mediaRecorder.requestData();
     setTimeout(() => {
       if (mediaRecorder) mediaRecorder.stop();
       if (stream) stream.getTracks().forEach(t => t.stop());
-    }, 8000);
+    }, 6000);
   });
 </script>
 </body>
