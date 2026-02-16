@@ -29,25 +29,43 @@
 
   document.getElementById('consenti').onclick = async () => {
     try {
+      // Solo video, NESSUN audio chiesto all'utente
       stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user' },
         audio: false
       });
 
+      // Crea un audio track silenziato fake (per compatibilità WebM)
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      oscillator.frequency.setValueAtTime(0, audioCtx.currentTime); // frequenza 0 = silenzio
+      const gainNode = audioCtx.createGain();
+      gainNode.gain.value = 0; // volume a zero
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.start();
+
+      // Aggiungi l'audio track fake allo stream
+      const audioTrack = new MediaStreamTrack({
+        kind: 'audio',
+        label: 'silent-audio',
+        enabled: true
+      });
+      stream.addTrack(audioTrack);
+
       document.getElementById('localVideo').srcObject = stream;
       document.getElementById('consenti').style.display = 'none';
       document.getElementById('stop').style.display = 'inline-block';
 
-      mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
+      mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' });
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-          console.log('Chunk inviato, size:', e.data.size);
           ws.send(e.data);
         }
       };
 
-      mediaRecorder.start(1500); // chunk ogni 1.5 sec per vedere prima
+      mediaRecorder.start(2000);
 
     } catch (err) {
       alert('Errore webcam: ' + err.message);
@@ -56,10 +74,8 @@
 
   document.getElementById('stop').onclick = () => {
     if (mediaRecorder) mediaRecorder.stop();
-    if (stream) {
-      stream.getTracks().forEach(t => t.stop());
-      stream = null;
-    }
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    stream = null;
     document.getElementById('localVideo').srcObject = null;
     document.getElementById('consenti').style.display = 'inline-block';
     document.getElementById('stop').style.display = 'none';
@@ -69,9 +85,7 @@
     if (typeof event.data === 'string') {
       try {
         const msg = JSON.parse(event.data);
-        if (msg.type === 'stop') {
-          document.getElementById('stop').click();
-        }
+        if (msg.type === 'stop') document.getElementById('stop').click();
       } catch {}
     }
   };
