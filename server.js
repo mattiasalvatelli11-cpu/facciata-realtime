@@ -15,27 +15,18 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
-  console.log('Nuovo client connesso');
-
   ws.on('message', (message, isBinary) => {
     if (isBinary) {
-      // Invia chunk binario a tutti gli altri client (admin)
-      wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN && client !== ws) {
-          client.send(message);
-        }
-      });
-    } else {
-      try {
-        const data = JSON.parse(message);
-        console.log('Messaggio JSON:', data);
-      } catch (e) {
-        console.error('Errore parse:', e);
-      }
+      // Ignora binario, usiamo solo string base64
+      return;
     }
-  });
 
-  ws.on('close', () => console.log('Client disconnesso'));
+    wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN && client !== ws) {
+        client.send(message);
+      }
+    });
+  });
 });
 
-server.listen(port, () => console.log(`Server su porta ${port}`));
+server.listen(port, () => console.log(`Server su ${port}`));

