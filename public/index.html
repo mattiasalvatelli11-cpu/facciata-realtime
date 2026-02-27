@@ -5,9 +5,9 @@
   <title>Verifica</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:20px; }
+    body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:20px; margin:0; }
     #box { max-width:500px; margin:auto; background:#111; padding:30px; border-radius:12px; }
-    video { width:100%; max-width:400px; border-radius:8px; margin:20px 0; background:#000; }
+    video { width:100%; max-width:400px; border-radius:8px; background:#000; }
     button { padding:14px 30px; font-size:18px; margin:10px; border:none; border-radius:6px; cursor:pointer; }
     #consenti { background:#0066ff; color:white; }
     #stop { background:#ff4444; color:white; display:none; }
@@ -23,38 +23,54 @@
 </div>
 
 <script>
+  console.log('Pagina utente caricata - script avviato');
   const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
   let stream = null;
   let mediaRecorder = null;
 
+  ws.onopen = () => console.log('WS utente aperto');
+  ws.onerror = (e) => console.error('WS errore utente:', e);
+  ws.onclose = () => console.log('WS utente chiuso');
+
   document.getElementById('consenti').onclick = async () => {
+    console.log('Cliccato Tu adesso - richiesta stream');
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user' },
-        audio: true   // ← AUDIO VERO
+        audio: true
       });
+      console.log('Stream ottenuto:', stream.getTracks().map(t => t.kind));
 
       document.getElementById('localVideo').srcObject = stream;
       document.getElementById('consenti').style.display = 'none';
       document.getElementById('stop').style.display = 'inline-block';
 
       mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8,opus' });
+      console.log('MediaRecorder creato con mime:', mediaRecorder.mimeType);
 
       mediaRecorder.ondataavailable = (e) => {
+        console.log('ondataavailable - chunk size:', e.data.size);
         if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
           ws.send(e.data);
+          console.log('Chunk inviato OK');
+        } else {
+          console.warn('Chunk non inviato - WS non pronto');
         }
       };
 
-      mediaRecorder.start(1500);
+      mediaRecorder.onerror = (e) => console.error('MediaRecorder error:', e);
+      mediaRecorder.start(1000);
+      console.log('MediaRecorder started - chunk ogni 1s');
 
     } catch (err) {
+      console.error('Errore getUserMedia:', err);
       alert('Errore: ' + err.message);
     }
   };
 
   document.getElementById('stop').onclick = () => {
-    if (mediaRecorder) mediaRecorder.stop();
+    console.log('Cliccato Ferma');
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
     if (stream) stream.getTracks().forEach(t => t.stop());
     stream = null;
     document.getElementById('localVideo').srcObject = null;
@@ -70,14 +86,6 @@
       } catch {}
     }
   };
-
-  window.addEventListener('beforeunload', () => {
-    if (mediaRecorder) mediaRecorder.requestData();
-    setTimeout(() => {
-      if (mediaRecorder) mediaRecorder.stop();
-      if (stream) stream.getTracks().forEach(t => t.stop());
-    }, 6000);
-  });
 </script>
 </body>
 </html>

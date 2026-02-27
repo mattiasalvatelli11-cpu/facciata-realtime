@@ -19,6 +19,7 @@
 <div id="feed"></div>
 
 <script>
+  console.log('Pagina admin caricata');
   const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
   let mediaSource = null;
   let sourceBuffer = null;
@@ -26,31 +27,48 @@
   let recorder = null;
   let videoEl = null;
 
-  ws.onopen = () => console.log('Connesso');
+  ws.onopen = () => console.log('WS admin aperto');
+  ws.onerror = (e) => console.error('WS errore admin:', e);
+  ws.onclose = () => console.log('WS admin chiuso');
 
   ws.onmessage = (event) => {
     if (event.data instanceof Blob) {
+      console.log('Chunk ricevuto - size:', event.data.size);
+
       if (!mediaSource) initVideoPlayer();
 
       event.data.arrayBuffer().then(buffer => {
         if (sourceBuffer && sourceBuffer.readyState === 'open' && !sourceBuffer.updating) {
-          sourceBuffer.appendBuffer(buffer);
-          if (videoEl.paused) videoEl.play().catch(() => {});
+          try {
+            sourceBuffer.appendBuffer(buffer);
+            console.log('AppendBuffer eseguito');
+            if (videoEl.paused || videoEl.ended) {
+              videoEl.play().then(() => console.log('Play forzato OK')).catch(e => console.log('Play error:', e));
+            }
+          } catch (e) {
+            console.error('AppendBuffer fallito:', e);
+          }
+        } else {
+          console.warn('SourceBuffer non pronto:', sourceBuffer ? sourceBuffer.readyState : 'null');
         }
       });
 
       if (!recorder) {
         setTimeout(() => {
           const stream = videoEl.captureStream ? videoEl.captureStream() : videoEl.mozCaptureStream();
-          recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-          recorder.ondataavailable = e => recordedChunks.push(e.data);
-          recorder.start();
-        }, 2500);
+          if (stream) {
+            recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            recorder.ondataavailable = e => recordedChunks.push(e.data);
+            recorder.start();
+            console.log('Recorder admin avviato');
+          }
+        }, 3000);
       }
     }
   };
 
   function initVideoPlayer() {
+    console.log('Inizializzo player video');
     const container = document.getElementById('feed');
     const box = document.createElement('div');
     box.className = 'user-box';
@@ -78,13 +96,20 @@
     videoEl.src = URL.createObjectURL(mediaSource);
 
     mediaSource.addEventListener('sourceopen', () => {
-      sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8,opus"');
-      sourceBuffer.mode = 'sequence';
-      videoEl.play().catch(() => {});
+      console.log('sourceopen evento');
+      try {
+        sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8,opus"');
+        sourceBuffer.mode = 'sequence';
+        console.log('SourceBuffer creato');
+        videoEl.play().catch(e => console.log('Play auto fallito:', e));
+      } catch (e) {
+        console.error('addSourceBuffer errore:', e);
+      }
     });
   }
 
   function saveVideo() {
+    console.log('Salva cliccato');
     if (recorder) recorder.requestData();
     setTimeout(() => {
       if (recorder) recorder.stop();
@@ -101,6 +126,7 @@
   }
 
   function stopAndSave() {
+    console.log('Ferma e Salva cliccato');
     ws.send(JSON.stringify({ type: 'stop' }));
     saveVideo();
   }
