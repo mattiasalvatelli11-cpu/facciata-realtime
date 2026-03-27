@@ -27,7 +27,6 @@ wss.on('connection', (ws) => {
 
       const msgString = JSON.stringify(payload);
 
-      // Invia a TUTTI i client (incluso Admin)
       wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
           client.send(msgString);

