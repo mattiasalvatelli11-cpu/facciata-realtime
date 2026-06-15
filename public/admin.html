@@ -5,14 +5,34 @@
   <title>Admin Panel - Live</title>
   <style>
     body { font-family: sans-serif; background: #f0f2f5; padding: 20px; }
-    #feed { max-width: 600px; margin: auto; display: flex; flex-direction: column; }
-    .msg { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; border-left: 5px solid #007bff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    .meta { font-size: 0.85em; color: #666; margin-bottom: 5px; }
-    .content { font-weight: bold; color: #333; word-break: break-all; }
+    #feed { max-width: 700px; margin: auto; display: flex; flex-direction: column; gap: 12px; }
+    .msg { 
+      background: white; 
+      padding: 15px; 
+      border-radius: 8px; 
+      border-left: 5px solid #007bff; 
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      position: relative;
+    }
+    .meta { font-size: 0.85em; color: #666; margin-bottom: 8px; }
+    .content { font-weight: bold; color: #333; word-break: break-all; margin-bottom: 12px; }
+    .actions {
+      display: flex;
+      gap: 10px;
+    }
+    button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .approve { background: #28a745; color: white; }
+    .reject  { background: #dc3545; color: white; }
   </style>
 </head>
 <body>
-  <h2 style="text-align:center;">Pannello Admin - Messaggi in Arrivo</h2>
+  <h2 style="text-align:center;">Pannello Admin - Richieste in Arrivo</h2>
   <div id="feed"></div>
 
   <script>
@@ -21,26 +41,56 @@
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        const feed = document.getElementById("feed");
-        
-        const div = document.createElement("div");
-        div.className = "msg";
-        
-        const meta = document.createElement("div");
-        meta.className = "meta";
-        meta.textContent = `${data.user} • ${new Date(data.ts).toLocaleTimeString()}`;
-        
-        const content = document.createElement("div");
-        content.className = "content";
-        content.textContent = data.message;
 
-        div.appendChild(meta);
-        div.appendChild(content);
-        feed.prepend(div);
+        // Nuovo messaggio da approvare
+        if (data.type === 'new_request') {
+          const feed = document.getElementById("feed");
+          
+          const div = document.createElement("div");
+          div.className = "msg";
+          div.dataset.requestId = data.requestId;
+
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent = `${data.user} • ${new Date(data.ts).toLocaleTimeString()}`;
+
+          const content = document.createElement("div");
+          content.className = "content";
+          content.textContent = data.message;
+
+          const actions = document.createElement("div");
+          actions.className = "actions";
+
+          const btnApprove = document.createElement("button");
+          btnApprove.className = "approve";
+          btnApprove.textContent = "✅ Approva";
+          btnApprove.onclick = () => sendAction(data.requestId, 'approve', div);
+
+          const btnReject = document.createElement("button");
+          btnReject.className = "reject";
+          btnReject.textContent = "❌ Rifiuta";
+          btnReject.onclick = () => sendAction(data.requestId, 'reject', div);
+
+          actions.appendChild(btnApprove);
+          actions.appendChild(btnReject);
+
+          div.appendChild(meta);
+          div.appendChild(content);
+          div.appendChild(actions);
+          feed.prepend(div);
+        }
       } catch (e) {
         console.error("Errore ricezione:", e);
       }
     };
+
+    function sendAction(requestId, action, element) {
+      ws.send(JSON.stringify({
+        type: action,
+        requestId: requestId
+      }));
+      element.remove(); // rimuove dal feed dopo l'azione
+    }
   </script>
 </body>
 </html>
